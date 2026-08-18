@@ -13,10 +13,10 @@ return [
                 'route' => 'voyti/user-social-network',
             ],
         ],
-    ],
 
-    'yiirocks/voyti-social-auth' => [
-        'enableSocialNetworkRegistration' => true,
-        'allowMultipleAccountsPerProvider' => false,
+        'social-auth' => [
+            'enableSocialNetworkRegistration' => true,
+            'allowMultipleAccountsPerProvider' => false,
+        ],
     ],
 ];

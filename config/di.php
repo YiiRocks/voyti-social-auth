@@ -70,7 +70,7 @@ return [
         $currentUser,
         $responseFactory,
         $flashNotifier,
-        $params['yiirocks/voyti-social-auth']['allowMultipleAccountsPerProvider'] ?? false,
+        $params['yiirocks/voyti']['social-auth']['allowMultipleAccountsPerProvider'] ?? false,
     ),
 
     SocialUserAttributesNormalizer::class => SocialUserAttributesNormalizer::class,
@@ -79,13 +79,13 @@ return [
         TranslatorInterface $translator,
     ) => new UserSocialAccountConnectService(
         $translator,
-        $params['yiirocks/voyti-social-auth']['allowMultipleAccountsPerProvider'] ?? false,
+        $params['yiirocks/voyti']['social-auth']['allowMultipleAccountsPerProvider'] ?? false,
     ),
     SocialAuthClientReturnUrlConfigurator::class => static fn(
         UrlGeneratorInterface $url,
     ) => new SocialAuthClientReturnUrlConfigurator(
         $url,
-        $params['yiirocks/voyti-social-auth']['allowMultipleAccountsPerProvider'] ?? false,
+        $params['yiirocks/voyti']['social-auth']['allowMultipleAccountsPerProvider'] ?? false,
     ),
 
     // Implements core's PostLoginHookInterface and PostRegistrationHookInterface (tagged below), so
@@ -94,7 +94,7 @@ return [
     PendingSocialAccountService::class => [
         'class' => PendingSocialAccountService::class,
         '__construct()' => [
-            'allowMultipleAccountsPerProvider' => $params['yiirocks/voyti-social-auth']['allowMultipleAccountsPerProvider'] ?? false,
+            'allowMultipleAccountsPerProvider' => $params['yiirocks/voyti']['social-auth']['allowMultipleAccountsPerProvider'] ?? false,
         ],
         'tags' => ['voyti.post-login-hook', 'voyti.post-registration-hook'],
     ],
@@ -109,7 +109,7 @@ return [
         TranslatorInterface $translator,
     ) => new UserSocialAuthenticateService(
         $config,
-        $params['yiirocks/voyti-social-auth']['enableSocialNetworkRegistration'] ?? true,
+        $params['yiirocks/voyti']['social-auth']['enableSocialNetworkRegistration'] ?? true,
         $currentUser,
         $session,
         $eventDispatcher,
