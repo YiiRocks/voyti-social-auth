@@ -39,6 +39,7 @@
         "phpunit/phpunit": "@stable",
         "rector/rector": "^2.1.1",
         "vimeo/psalm": "^6.0",
+        "yiirocks/voyti-views-bootstrap5": "^1.0",
         "yiisoft/code-style": "^1.1",
         "yiisoft/config": "^1.6",
         "yiisoft/db-sqlite": "^2.0",

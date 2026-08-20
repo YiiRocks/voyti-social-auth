@@ -109,42 +109,19 @@ final readonly class SocialNetworkController
             $accounts,
         );
 
-        return $this->viewRenderer
-            ->withAddedInjections(CsrfViewInjection::class, VoytiCommonParametersInjection::class)
-            ->withViewPath($this->resolveOwnViewPath())
-            ->render('social-network/index', [
-                'data' => [
-                    // Pre-rendered here (rooted at core's own view path via resolveViewPath(), same
-                    // as any core-owned view) rather than left to the template to include as
-                    // '../shared/_menu' - a relative include only resolves within the *currently
-                    // set* viewPath, which for this page's own template is this package's root, not
-                    // core's.
-                    'menuHtml' => $this->viewRenderer
-                        ->withAddedInjections(CsrfViewInjection::class, VoytiCommonParametersInjection::class)
-                        ->withViewPath($this->resolveViewPath('shared/_menu'))
-                        ->renderPartialAsString('shared/_menu', ['menu' => MenuView::account($this->config, $this->url, $this->translator())]),
-                    'flashHtml' => $this->viewRenderer
-                        ->withAddedInjections(CsrfViewInjection::class, VoytiCommonParametersInjection::class)
-                        ->withViewPath($this->resolveViewPath('shared/_flash'))
-                        ->renderPartialAsString('shared/_flash'),
-                    'accounts' => $rows,
-                    'authChoice' => $authChoice,
-                ],
-            ]);
-    }
-
-    /**
-     * RenderTrait::resolveViewPath() always resolves relative to core's own package root (a
-     * trait's __DIR__ is fixed to the file it's physically defined in, regardless of which class
-     * uses it), so it can never find this package's own bundled views. Mirrors the same
-     * host-override-then-bundled-fallback logic, rooted at this package's own directory instead.
-     */
-    private function resolveOwnViewPath(): string
-    {
-        if ($this->config->viewPath !== null && is_file($this->config->viewPath . '/social-network/index.php')) {
-            return $this->config->viewPath;
-        }
-
-        return dirname(__DIR__, 3) . '/resources/views/' . $this->config->webTheme->value;
+        return $this->renderView('social-network/index', [
+            'data' => [
+                'menuHtml' => $this->viewRenderer
+                    ->withAddedInjections(CsrfViewInjection::class, VoytiCommonParametersInjection::class)
+                    ->withViewPath($this->resolveViewPath('shared/_menu'))
+                    ->renderPartialAsString('shared/_menu', ['menu' => MenuView::account($this->config, $this->url, $this->translator())]),
+                'flashHtml' => $this->viewRenderer
+                    ->withAddedInjections(CsrfViewInjection::class, VoytiCommonParametersInjection::class)
+                    ->withViewPath($this->resolveViewPath('shared/_flash'))
+                    ->renderPartialAsString('shared/_flash'),
+                'accounts' => $rows,
+                'authChoice' => $authChoice,
+            ],
+        ]);
     }
 }

@@ -6,14 +6,12 @@ namespace YiiRocks\Voyti\SocialAuth\Controller\Registration;
 
 use Psr\Http\Message\ResponseInterface;
 use YiiRocks\Voyti\Controller\RenderTrait;
-use YiiRocks\Voyti\Helper\Views\VoytiCommonParametersInjection;
 use YiiRocks\Voyti\SocialAuth\Service\Auth\PendingSocialAccountService;
 use YiiRocks\Voyti\VoytiConfig;
 use Yiisoft\Router\HydratorAttribute\RouteArgument;
 use Yiisoft\Router\UrlGeneratorInterface;
 use Yiisoft\Translator\TranslatorInterface;
 use Yiisoft\Yii\AuthClient\Collection;
-use Yiisoft\Yii\View\Renderer\CsrfViewInjection;
 use Yiisoft\Yii\View\Renderer\WebViewRenderer;
 
 /**
@@ -51,30 +49,12 @@ final readonly class SocialConnectController
             ? $this->clientCollection->getClient($provider)->getTitle()
             : $provider;
 
-        return $this->viewRenderer
-            ->withAddedInjections(CsrfViewInjection::class, VoytiCommonParametersInjection::class)
-            ->withViewPath($this->resolveOwnViewPath())
-            ->render('registration/connect', [
-                'data' => [
-                    'providerTitle' => $providerTitle,
-                    'loginUrl' => $this->url->generate('voyti/session-login'),
-                    'registerUrl' => $this->url->generate('voyti/registration-register'),
-                ],
-            ]);
-    }
-
-    /**
-     * RenderTrait::resolveViewPath() always resolves relative to core's own package root (a
-     * trait's __DIR__ is fixed to the file it's physically defined in, regardless of which class
-     * uses it), so it can never find this package's own bundled views. Mirrors the same
-     * host-override-then-bundled-fallback logic, rooted at this package's own directory instead.
-     */
-    private function resolveOwnViewPath(): string
-    {
-        if ($this->config->viewPath !== null && is_file($this->config->viewPath . '/registration/connect.php')) {
-            return $this->config->viewPath;
-        }
-
-        return dirname(__DIR__, 3) . '/resources/views/' . $this->config->webTheme->value;
+        return $this->renderView('registration/connect', [
+            'data' => [
+                'providerTitle' => $providerTitle,
+                'loginUrl' => $this->url->generate('voyti/session-login'),
+                'registerUrl' => $this->url->generate('voyti/registration-register'),
+            ],
+        ]);
     }
 }
