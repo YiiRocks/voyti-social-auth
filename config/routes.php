@@ -5,6 +5,7 @@ declare(strict_types=1);
 use YiiRocks\Voyti\Middleware\RequireLoginMiddleware;
 use YiiRocks\Voyti\SocialAuth\Controller\Registration\SocialConnectController;
 use YiiRocks\Voyti\SocialAuth\Controller\SocialNetwork\SocialNetworkController;
+use YiiRocks\Voyti\SocialAuth\Middleware\CaptureAuthActionRequestMiddleware;
 use YiiRocks\Voyti\VoytiRoutes;
 use Yiisoft\Router\Group;
 use Yiisoft\Router\Route;
@@ -16,7 +17,7 @@ $voytiParams = $params['yiirocks/voyti'] ?? [];
 
 return [
     Group::create()
-        ->middleware(...VoytiRoutes::webMiddleware($voytiParams))
+        ->middleware(CaptureAuthActionRequestMiddleware::class, ...VoytiRoutes::webMiddleware($voytiParams))
         ->routes(
             Route::get('auth/{authclient}')->name('voyti/session-auth')->action(AuthAction::class),
             Route::get('connect/{code}')->name('voyti/registration-connect')->action([SocialConnectController::class, 'connect']),

@@ -8,12 +8,12 @@ use Composer\InstalledVersions;
 use Psr\Http\Message\ResponseInterface;
 use RuntimeException;
 use YiiRocks\Voyti\Controller\RenderTrait;
-use YiiRocks\Voyti\Model\User;
-use YiiRocks\Voyti\Service\RememberMeCookieService;
+use YiiRocks\Voyti\Service\Auth\LoginCompletionService;
+use YiiRocks\Voyti\SocialAuth\Http\AuthActionRequestHolder;
+use YiiRocks\Voyti\SocialAuth\Middleware\CaptureAuthActionRequestMiddleware;
 use YiiRocks\Voyti\VoytiConfig;
 use Yiisoft\Router\UrlGeneratorInterface;
 use Yiisoft\Session\Flash\FlashInterface;
-use Yiisoft\Session\SessionInterface;
 use Yiisoft\Translator\TranslatorInterface;
 use Yiisoft\User\CurrentUser;
 use Yiisoft\User\Guest\GuestIdentityInterface;
@@ -31,6 +31,9 @@ use Yiisoft\Yii\View\Renderer\WebViewRenderer;
  * `ServerRequestInterface` (it's `final`, so there's no hook to change that) - login metadata that
  * used to come from `$request->getServerParams()` is read from PHP's `$_SERVER` superglobal instead,
  * which is equivalent under the traditional php-fpm/apache SAPI this repo's tooling targets.
+ * `UserSocialAuthenticateService` itself reads the real request from {@see AuthActionRequestHolder}
+ * (populated by {@see CaptureAuthActionRequestMiddleware} before `AuthAction` runs), since core's
+ * `LoginCompletionService::complete()` needs one.
  */
 final readonly class SocialAuthCallbackService
 {
@@ -41,10 +44,8 @@ final readonly class SocialAuthCallbackService
         private WebViewRenderer $viewRenderer,
         private UrlGeneratorInterface $url,
         private VoytiConfig $config,
-        private SessionInterface $session,
         private FlashInterface $flash,
         private CurrentUser $currentUser,
-        private RememberMeCookieService $rememberMeCookieService,
         private PendingSocialAccountService $pendingSocialAccountService,
         private UserSocialAuthenticateService $socialAuthenticateService,
         private UserSocialAccountConnectService $socialAccountConnectService,
@@ -87,15 +88,12 @@ final readonly class SocialAuthCallbackService
             );
         }
 
-        // A guest-success flow with no pending account always logged a User in above.
-        /** @var User $user */
-        $user = $this->currentUser->getIdentity();
-
-        return $this->rememberMeCookieService->addCookie(
-            $user,
-            $this->popupAwareRedirect($this->homeUrl()),
-            $this->session->getId() ?? '',
-        );
+        /**
+         * @psalm-suppress PossiblyNullArgument A guest success with no pending account always means
+         * UserSocialAuthenticateService::run() logged a user in directly - loginResponse is
+         * guaranteed non-null here.
+         */
+        return $this->wrapLoginResponseForPopup($result->loginResponse);
     }
 
     /**
@@ -126,5 +124,21 @@ final readonly class SocialAuthCallbackService
         return $this->renderView('shared/message', [
             'data' => ['title' => $title, 'homeUrl' => $this->homeUrl()],
         ]);
+    }
+
+    /**
+     * Carries {@see LoginCompletionService::complete()}'s Location (home) and Set-Cookie
+     * (remember-me) headers over onto the popup-aware response, instead of a raw redirect - the
+     * OAuth popup widget needs the JS-driven opener-navigation page, not a bare 302.
+     */
+    private function wrapLoginResponseForPopup(ResponseInterface $loginResponse): ResponseInterface
+    {
+        $response = $this->popupAwareRedirect($loginResponse->getHeaderLine('Location'));
+
+        foreach ($loginResponse->getHeader('Set-Cookie') as $cookie) {
+            $response = $response->withAddedHeader('Set-Cookie', $cookie);
+        }
+
+        return $response;
     }
 }

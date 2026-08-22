@@ -209,28 +209,6 @@ final class UserSocialAccountTest extends TestCase
         self::assertSame($decoded, $entity->getDecodedData());
     }
 
-    public function testGetSetId(): void
-    {
-        $entity = new UserSocialAccount();
-        $entity->setUserId(42);
-        $entity->setProvider('github');
-        $entity->setClientId('abc123');
-        $entity->setCode('code123');
-        $entity->setEmail('user@example.com');
-        $entity->setUsername('githubuser');
-        $entity->setCreatedAt(1000);
-        $entity->setData('{"key":"val"}');
-
-        self::assertSame(42, $entity->getUserId());
-        self::assertSame('github', $entity->getProvider());
-        self::assertSame('abc123', $entity->getClientId());
-        self::assertSame('code123', $entity->getCode());
-        self::assertSame('user@example.com', $entity->getEmail());
-        self::assertSame('githubuser', $entity->getUsername());
-        self::assertSame(1000, $entity->getCreatedAt());
-        self::assertSame('{"key":"val"}', $entity->getData());
-    }
-
     public function testGettersSettersAndDefaults(): void
     {
         // Defaults

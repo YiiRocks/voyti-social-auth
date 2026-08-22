@@ -7,7 +7,10 @@ namespace YiiRocks\Voyti\SocialAuth\tests\Service\Auth;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\MockObject\MockObject;
 use Psr\EventDispatcher\EventDispatcherInterface;
+use YiiRocks\Voyti\Model\User;
+use YiiRocks\Voyti\Service\Auth\LoginCompletionService;
 use YiiRocks\Voyti\Service\User\UserCreationHelper;
+use YiiRocks\Voyti\SocialAuth\Http\AuthActionRequestHolder;
 use YiiRocks\Voyti\SocialAuth\Model\UserSocialAccount;
 use YiiRocks\Voyti\SocialAuth\Service\Auth\PendingSocialAccountService;
 use YiiRocks\Voyti\SocialAuth\Service\Auth\SocialAuthCallbackService;
@@ -59,18 +62,18 @@ final class SocialAuthCallbackServiceTest extends DatabaseTestCase
         $html = (string) $this->createService([
             UserSocialAuthenticateService::class => static fn(
                 VoytiConfig $config,
-                CurrentUser $currentUser,
+                AuthActionRequestHolder $requestHolder,
+                LoginCompletionService $loginCompletionService,
                 SessionInterface $session,
-                EventDispatcherInterface $eventDispatcher,
                 UserCreationHelper $userCreationHelper,
                 PendingSocialAccountService $pendingSocialAccountService,
                 TranslatorInterface $translator,
             ) => new UserSocialAuthenticateService(
                 $config,
                 false,
-                $currentUser,
+                $requestHolder,
+                $loginCompletionService,
                 $session,
-                $eventDispatcher,
                 $userCreationHelper,
                 $pendingSocialAccountService,
                 $translator,
@@ -81,8 +84,8 @@ final class SocialAuthCallbackServiceTest extends DatabaseTestCase
 
         // A RuntimeException from the underlying flow is rendered as the message.
         // The account is already linked to an existing user, so the real authenticate service logs
-        // that user in and dispatches AfterLoginEvent - a throwing dispatcher turns that into the
-        // RuntimeException the callback catches.
+        // that user in via LoginCompletionService, which dispatches BeforeLoginEvent - a throwing
+        // dispatcher turns that into the RuntimeException the callback catches.
         $user = $this->createUser(email: 'linked@example.com');
         $this->createSocialAccount(userId: (int) $user->getId());
 
@@ -93,7 +96,7 @@ final class SocialAuthCallbackServiceTest extends DatabaseTestCase
         self::assertStringContainsString('state mismatch', $html);
     }
 
-    public function testHandleSuccessGuestSuccessAddsCookieAndRedirectsHome(): void
+    public function testHandleSuccessGuestSuccess(): void
     {
         // The account is linked to an existing user, so the real authenticate service logs them in;
         // the callback then writes the remember-me cookie onto the home redirect.
@@ -106,21 +109,37 @@ final class SocialAuthCallbackServiceTest extends DatabaseTestCase
 
         $result = $this->createService()->handleSuccess($this->client('github'));
 
-        $this->assertSame((int) $user->getId(), (int) $this->currentUser->getId());
+        // LoginCompletionService::complete() logs the user in via a withAuthTimeout()-cloned
+        // CurrentUser (remember-me is always on for social login), so the clone's mutation isn't
+        // visible on $this->currentUser's own in-memory identity - check the DB side effect instead.
+        $this->assertNotNull(User::findById((int) $user->getId())?->getLastLoginAt());
         $cookie = $result->getHeaderLine('Set-Cookie');
         $this->assertStringContainsString('autoLogin', $cookie);
         $this->assertStringContainsString('sessionprobe', $cookie);
-    }
 
-    public function testHandleSuccessGuestSuccessRedirectsToPendingConnectWhenAccountPending(): void
-    {
-        // An unlinked account with a code makes the real authenticate service remember it as pending.
-        $this->createSocialAccount(code: 'pending-code');
+        // An unlinked account with a code makes the real authenticate service remember it as pending,
+        // so the callback redirects to the pending-connect flow instead of home.
+        $this->createSocialAccount(code: 'pending-code', clientId: 'pending-client');
 
-        $html = (string) $this->createService()->handleSuccess($this->client('github'))->getBody();
+        $html = (string) $this->createService()->handleSuccess($this->client('github', 'pending-client'))->getBody();
 
         self::assertStringContainsString('registration-connect?code=pending-code', $html);
         self::assertStringContainsString(', true)', $html);
+    }
+
+    public function testHandleSuccessLoggedInFailureRendersMessage(): void
+    {
+        // The provider account is already connected to a different user, so the real connect
+        // service fails and the callback renders that message instead of redirecting.
+        $otherUser = $this->createUser(username: 'other', email: 'other@example.com');
+        $this->createSocialAccount(userId: (int) $otherUser->getId());
+
+        $viewer = $this->createUser(username: 'viewer', email: 'viewer@example.com');
+        $this->currentUser->login($viewer);
+
+        $html = (string) $this->createService()->handleSuccess($this->client('github'))->getBody();
+
+        self::assertStringContainsString('This account has already been connected to another user', $html);
     }
 
     public function testHandleSuccessLoggedInSuccessRedirectsToSocialNetworkIndex(): void
@@ -137,16 +156,16 @@ final class SocialAuthCallbackServiceTest extends DatabaseTestCase
         $this->assertSame((int) $viewer->getId(), $account->getUserId());
     }
 
-    private function attributes(): array
+    private function attributes(string $clientId = 'client123'): array
     {
-        return ['id' => 'client123', 'email' => 'user@example.com', 'username' => 'user', 'name' => 'User Name'];
+        return ['id' => $clientId, 'email' => 'user@example.com', 'username' => 'user', 'name' => 'User Name'];
     }
 
-    private function client(string $name): AuthClientInterface&MockObject
+    private function client(string $name, string $clientId = 'client123'): AuthClientInterface&MockObject
     {
         $client = $this->createMock(AuthClientInterface::class);
         $client->method('getName')->willReturn($name);
-        $client->method('getUserAttributes')->willReturn($this->attributes());
+        $client->method('getUserAttributes')->willReturn($this->attributes($clientId));
 
         return $client;
     }
@@ -161,11 +180,11 @@ final class SocialAuthCallbackServiceTest extends DatabaseTestCase
         ])->get(SocialAuthCallbackService::class);
     }
 
-    private function createSocialAccount(?int $userId = null, ?string $code = null): UserSocialAccount
+    private function createSocialAccount(?int $userId = null, ?string $code = null, string $clientId = 'client123'): UserSocialAccount
     {
         $account = new UserSocialAccount();
         $account->setProvider('github');
-        $account->setClientId('client123');
+        $account->setClientId($clientId);
         $account->setUserId($userId);
         $account->setCode($code);
         $account->setCreatedAt(time());

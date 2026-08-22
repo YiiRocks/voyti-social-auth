@@ -6,29 +6,26 @@ namespace YiiRocks\Voyti\SocialAuth\tests\Service\Auth;
 
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use Psr\EventDispatcher\EventDispatcherInterface;
+use YiiRocks\Voyti\Event\Auth\BeforeLoginEvent;
+use YiiRocks\Voyti\Exception\ActionPreventedException;
 use YiiRocks\Voyti\Model\User;
-use YiiRocks\Voyti\Service\Password\PasswordHistoryService;
-use YiiRocks\Voyti\Service\User\UserCreationHelper;
 use YiiRocks\Voyti\SocialAuth\Model\UserSocialAccount;
-use YiiRocks\Voyti\SocialAuth\Service\Auth\PendingSocialAccountService;
 use YiiRocks\Voyti\SocialAuth\Service\Auth\UserSocialAuthenticateService;
 use YiiRocks\Voyti\SocialAuth\tests\Support\CurrentUserTrait;
 use YiiRocks\Voyti\SocialAuth\tests\Support\DatabaseTestCase;
 use YiiRocks\Voyti\SocialAuth\tests\Support\FakeSession;
-use YiiRocks\Voyti\SocialAuth\tests\Support\MailCapture;
-use YiiRocks\Voyti\SocialAuth\tests\Support\MailServiceFactoryTrait;
-use YiiRocks\Voyti\SocialAuth\tests\Support\SocialAuthTranslatorFactory;
-use YiiRocks\Voyti\SocialAuth\tests\Support\TestPasswordHasherFactory;
+use YiiRocks\Voyti\SocialAuth\tests\Support\TestContainerTrait;
 use YiiRocks\Voyti\SocialAuth\tests\Support\UserFactoryTrait;
 use YiiRocks\Voyti\SocialAuth\tests\Support\VoytiConfigFactory;
 use YiiRocks\Voyti\VoytiConfig;
+use Yiisoft\Session\SessionInterface;
 use Yiisoft\User\CurrentUser;
 
 #[AllowMockObjectsWithoutExpectations]
 final class UserSocialAuthenticateServiceTest extends DatabaseTestCase
 {
     use CurrentUserTrait;
-    use MailServiceFactoryTrait;
+    use TestContainerTrait;
     use UserFactoryTrait;
 
     private FakeSession $session;
@@ -87,12 +84,55 @@ final class UserSocialAuthenticateServiceTest extends DatabaseTestCase
         self::assertSame('Your account has been blocked', $result->getMessage());
     }
 
+    public function testRunLoginBlockedByBeforeLoginEventFails(): void
+    {
+        // A BeforeLoginEvent listener throwing ActionPreventedException (e.g. fraud detection) -
+        // dispatched by core's LoginCompletionService::complete() - must fail the same way a
+        // rejected password login does, instead of the exception propagating uncaught.
+        $user = $this->createUser('prevented', 'prevented@example.com');
+        $this->createConnectedAccount('prevented_client', (int) $user->getId());
+
+        $preventingDispatcher = new class implements EventDispatcherInterface {
+            public function dispatch(object $event): object
+            {
+                if ($event instanceof BeforeLoginEvent) {
+                    throw new ActionPreventedException('Login blocked by policy');
+                }
+
+                return $event;
+            }
+        };
+
+        $result = $this->createService(VoytiConfigFactory::create(), eventDispatcher: $preventingDispatcher)
+            ->run('github', 'prevented_client', ['email' => 'test@example.com']);
+
+        self::assertTrue($result->isFailure());
+        self::assertSame('Login blocked by policy', $result->getMessage());
+    }
+
+    public function testRunLoginCompletesViaLoginCompletionServiceWithResponse(): void
+    {
+        // A successful login now flows through core's LoginCompletionService, so the result carries
+        // its ResponseInterface (used by SocialAuthCallbackService to build the popup-aware redirect
+        // and forward the remember-me cookie) instead of the service logging the user in itself.
+        $user = $this->createUser('has_response', 'has_response@example.com');
+        $this->createConnectedAccount('has_response_client', (int) $user->getId());
+
+        $result = $this->createService(VoytiConfigFactory::create())
+            ->run('github', 'has_response_client', ['email' => 'test@example.com']);
+
+        self::assertTrue($result->isSuccess());
+        self::assertNotNull($result->loginResponse);
+        self::assertStringContainsString('autoLogin', $result->loginResponse->getHeaderLine('Set-Cookie'));
+    }
+
     public function testRunNewAccountWithNoEmailNoUsername(): void
     {
         $result = $this->createService(VoytiConfigFactory::create())
             ->run('github', 'bare_client', ['id' => 'bare_user_123']);
 
         self::assertTrue($result->isSuccess());
+        self::assertNull($result->loginResponse);
 
         $saved = UserSocialAccount::findByProviderAndClientId('github', 'bare_client');
         self::assertNotNull($saved);
@@ -113,7 +153,7 @@ final class UserSocialAuthenticateServiceTest extends DatabaseTestCase
             ->run('github', 'new_account', ['username' => 'newuser', 'email' => 'new@example.com'], ['REMOTE_ADDR' => '198.51.100.7']);
 
         self::assertTrue($result->isSuccess());
-        self::assertFalse($currentUser->isGuest());
+        self::assertNotNull($result->loginResponse);
 
         $user = User::findByEmail('new@example.com');
         self::assertNotNull($user);
@@ -155,7 +195,7 @@ final class UserSocialAuthenticateServiceTest extends DatabaseTestCase
         $result = $this->createService(VoytiConfigFactory::create(), $currentUser)
             ->run('github', 'dupe_account', ['username' => 'dupe1', 'email' => 'new_dupe1@example.com']);
         self::assertTrue($result->isSuccess());
-        self::assertFalse($currentUser->isGuest());
+        self::assertNotNull($result->loginResponse);
         self::assertSame('dupe1_2', User::findByEmail('new_dupe1@example.com')?->getUsername());
 
         // Base and _2 taken: increments to _3
@@ -272,33 +312,16 @@ final class UserSocialAuthenticateServiceTest extends DatabaseTestCase
         VoytiConfig $config,
         ?CurrentUser $currentUser = null,
         ?EventDispatcherInterface $eventDispatcher = null,
-        bool $enableSocialNetworkRegistration = true,
     ): UserSocialAuthenticateService {
-        $currentUser ??= $this->createCurrentUser();
-        $eventDispatcher ??= $this->createMock(EventDispatcherInterface::class);
+        $overrides = [
+            VoytiConfig::class => $config,
+            CurrentUser::class => $currentUser ?? $this->createCurrentUser(),
+            SessionInterface::class => $this->session,
+        ];
+        if ($eventDispatcher !== null) {
+            $overrides[EventDispatcherInterface::class] = $eventDispatcher;
+        }
 
-        return new UserSocialAuthenticateService(
-            $config,
-            $enableSocialNetworkRegistration,
-            $currentUser,
-            $this->session,
-            $eventDispatcher,
-            $this->createUserCreationHelper($config, $eventDispatcher),
-            new PendingSocialAccountService($this->session, false),
-            SocialAuthTranslatorFactory::create(),
-        );
-    }
-
-    private function createUserCreationHelper(VoytiConfig $config, EventDispatcherInterface $eventDispatcher): UserCreationHelper
-    {
-        $passwordHasher = TestPasswordHasherFactory::create();
-
-        return new UserCreationHelper(
-            $this->createMailService(new MailCapture()),
-            $eventDispatcher,
-            $passwordHasher,
-            $config,
-            new PasswordHistoryService($passwordHasher, $config),
-        );
+        return $this->getTestContainer($overrides)->get(UserSocialAuthenticateService::class);
     }
 }

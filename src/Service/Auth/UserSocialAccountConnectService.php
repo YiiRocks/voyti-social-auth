@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace YiiRocks\Voyti\SocialAuth\Service\Auth;
 
-use YiiRocks\Voyti\Service\ServiceResult;
 use YiiRocks\Voyti\SocialAuth\Model\UserSocialAccount;
 use Yiisoft\Json\Json;
 use Yiisoft\Translator\TranslatorInterface;
@@ -22,16 +21,16 @@ final readonly class UserSocialAccountConnectService
         private bool $allowMultipleAccountsPerProvider,
     ) {}
 
-    public function run(string $provider, string $clientId, array $userAttributes, int $userId): ServiceResult
+    public function run(string $provider, string $clientId, array $userAttributes, int $userId): SocialAuthResult
     {
         $account = UserSocialAccount::findByProviderAndClientId($provider, $clientId);
 
         if ($account !== null && $account->getUserId() === $userId) {
-            return ServiceResult::success();
+            return SocialAuthResult::success();
         }
 
         if ($account !== null && $account->getUserId() !== null) {
-            return ServiceResult::failure(
+            return SocialAuthResult::failure(
                 $this->translator->translate('voyti.social.network_already_connected', category: 'voyti-social-auth'),
             );
         }
@@ -40,7 +39,7 @@ final readonly class UserSocialAccountConnectService
             !$this->allowMultipleAccountsPerProvider
             && UserSocialAccount::findByUserIdAndProvider($userId, $provider) !== null
         ) {
-            return ServiceResult::failure(
+            return SocialAuthResult::failure(
                 $this->translator->translate('voyti.social.provider_already_connected', category: 'voyti-social-auth'),
             );
         }
@@ -60,6 +59,6 @@ final readonly class UserSocialAccountConnectService
 
         $account->save();
 
-        return ServiceResult::success();
+        return SocialAuthResult::success();
     }
 }

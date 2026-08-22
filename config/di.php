@@ -2,11 +2,12 @@
 
 declare(strict_types=1);
 
-use Psr\EventDispatcher\EventDispatcherInterface;
 use Psr\Http\Message\ResponseFactoryInterface;
+use YiiRocks\Voyti\Service\Auth\LoginCompletionService;
 use YiiRocks\Voyti\Service\FlashNotifier;
 use YiiRocks\Voyti\Service\User\UserCreationHelper;
 use YiiRocks\Voyti\SocialAuth\Controller\SocialNetwork\SocialNetworkController;
+use YiiRocks\Voyti\SocialAuth\Http\AuthActionRequestHolder;
 use YiiRocks\Voyti\SocialAuth\Service\Auth\PendingSocialAccountService;
 use YiiRocks\Voyti\SocialAuth\Service\Auth\SocialAuthCallbackService;
 use YiiRocks\Voyti\SocialAuth\Service\Auth\SocialAuthClientReturnUrlConfigurator;
@@ -75,6 +76,7 @@ return [
 
     SocialUserAttributesNormalizer::class => SocialUserAttributesNormalizer::class,
     SocialAuthCallbackService::class => SocialAuthCallbackService::class,
+    AuthActionRequestHolder::class => AuthActionRequestHolder::class,
     UserSocialAccountConnectService::class => static fn(
         TranslatorInterface $translator,
     ) => new UserSocialAccountConnectService(
@@ -101,18 +103,18 @@ return [
 
     UserSocialAuthenticateService::class => static fn(
         VoytiConfig $config,
-        CurrentUser $currentUser,
+        AuthActionRequestHolder $requestHolder,
+        LoginCompletionService $loginCompletionService,
         SessionInterface $session,
-        EventDispatcherInterface $eventDispatcher,
         UserCreationHelper $userCreationHelper,
         PendingSocialAccountService $pendingSocialAccountService,
         TranslatorInterface $translator,
     ) => new UserSocialAuthenticateService(
         $config,
         $params['yiirocks/voyti']['social-auth']['enableSocialNetworkRegistration'] ?? true,
-        $currentUser,
+        $requestHolder,
+        $loginCompletionService,
         $session,
-        $eventDispatcher,
         $userCreationHelper,
         $pendingSocialAccountService,
         $translator,

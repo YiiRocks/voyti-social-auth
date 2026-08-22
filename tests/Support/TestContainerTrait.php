@@ -17,6 +17,7 @@ use Psr\Http\Message\StreamFactoryInterface;
 use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
 use RuntimeException;
+use YiiRocks\Voyti\SocialAuth\Http\AuthActionRequestHolder;
 use Yiisoft\Aliases\Aliases;
 use Yiisoft\Cookies\CookieEncryptor;
 use Yiisoft\Cookies\CookieSigner;
@@ -121,6 +122,13 @@ trait TestContainerTrait
         $psr17Factory = new Psr17Factory();
         $session = new FakeSession();
 
+        // UserSocialAuthenticateService reads the request from AuthActionRequestHolder instead of
+        // receiving it directly (AuthAction never forwards it) - tests bypass CaptureAuthActionRequestMiddleware
+        // entirely (they call handleSuccess()/run() directly), so pre-populate a request here the
+        // same way that middleware would in production.
+        $requestHolder = new AuthActionRequestHolder();
+        $requestHolder->setRequest($psr17Factory->createServerRequest('GET', 'https://example.test/auth/github'));
+
         $definitions = array_merge($definitions, [
             // Real view stack so RenderTrait's WebViewRenderer renders the bundled templates instead
             // of being mocked (WebViewRenderer/WebView are final). Injections (CsrfViewInjection) are
@@ -130,6 +138,7 @@ trait TestContainerTrait
             CookieEncryptor::class => new CookieEncryptor('test-secret-key-0123456789abcdef'),
             CookieSigner::class => new CookieSigner('test-secret-key-0123456789abcdef'),
             CsrfTokenInterface::class => new StubCsrfToken('test-csrf-token'),
+            AuthActionRequestHolder::class => $requestHolder,
             CurrentRoute::class => new CurrentRoute(),
             InjectionContainerInterface::class => InjectionContainer::class,
             EventDispatcherInterface::class => new EventCaptureDispatcher(),

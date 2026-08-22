@@ -4,25 +4,28 @@ declare(strict_types=1);
 
 namespace YiiRocks\Voyti\SocialAuth\Service\Auth;
 
-use Psr\EventDispatcher\EventDispatcherInterface;
-use YiiRocks\Voyti\Event\Auth\AfterLoginEvent;
+use YiiRocks\Voyti\Exception\ActionPreventedException;
 use YiiRocks\Voyti\Helper\LoginMetadataHelper;
 use YiiRocks\Voyti\Model\User;
-use YiiRocks\Voyti\Service\ServiceResult;
+use YiiRocks\Voyti\Service\Auth\LoginCompletionService;
 use YiiRocks\Voyti\Service\User\UserCreationHelper;
+use YiiRocks\Voyti\SocialAuth\Http\AuthActionRequestHolder;
 use YiiRocks\Voyti\SocialAuth\Model\UserSocialAccount;
 use YiiRocks\Voyti\VoytiConfig;
 use Yiisoft\Json\Json;
 use Yiisoft\Security\Random;
 use Yiisoft\Session\SessionInterface;
 use Yiisoft\Translator\TranslatorInterface;
-use Yiisoft\User\CurrentUser;
 
 /**
  * Handles social login: looks up or creates the {@see UserSocialAccount} for a provider callback,
  * logging in an already-connected user, auto-registering a new one when enabled and the email is
  * free, or otherwise deferring to {@see PendingSocialAccountService} until the account is
- * connected manually.
+ * connected manually. An already-connected/freshly-registered login always completes via core's
+ * {@see LoginCompletionService}, the same path password login uses - keeping social login eligible
+ * for the cancellable `BeforeLoginEvent` and remember-me without duplicating that logic here. Uses
+ * {@see AuthActionRequestHolder} for the real request `complete()` needs, since `AuthAction` never
+ * forwards it.
  */
 final readonly class UserSocialAuthenticateService
 {
@@ -32,9 +35,9 @@ final readonly class UserSocialAuthenticateService
     public function __construct(
         private VoytiConfig $config,
         private bool $enableSocialNetworkRegistration,
-        private CurrentUser $currentUser,
+        private AuthActionRequestHolder $requestHolder,
+        private LoginCompletionService $loginCompletionService,
         private SessionInterface $session,
-        private EventDispatcherInterface $eventDispatcher,
         private UserCreationHelper $userCreationHelper,
         private PendingSocialAccountService $pendingSocialAccountService,
         private TranslatorInterface $translator,
@@ -42,16 +45,17 @@ final readonly class UserSocialAuthenticateService
 
     /**
      * @param array<array-key, mixed> $userAttributes
-     * @param array<array-key, mixed> $serverParams
+     * @param array<array-key, mixed> $serverParams Only used for a fresh registration's
+     * `registration_ip` - the login itself uses the real request from {@see AuthActionRequestHolder}.
      */
     public function run(
         string $provider,
         string $clientId,
         array $userAttributes,
         array $serverParams = [],
-    ): ServiceResult {
+    ): SocialAuthResult {
         if (!$this->enableSocialNetworkRegistration) {
-            return ServiceResult::failure(
+            return SocialAuthResult::failure(
                 $this->translator->translate('voyti.social.registration_disabled', category: 'voyti-social-auth'),
             );
         }
@@ -67,7 +71,7 @@ final readonly class UserSocialAuthenticateService
         }
 
         if ($clientId === '') {
-            return ServiceResult::failure(
+            return SocialAuthResult::failure(
                 $this->translator->translate('voyti.social.client_id_unknown', category: 'voyti-social-auth'),
             );
         }
@@ -81,38 +85,43 @@ final readonly class UserSocialAuthenticateService
         if ($account->getUserId() !== null) {
             $user = User::findById($account->getUserId());
             if ($user === null) {
-                return ServiceResult::failure(
+                return SocialAuthResult::failure(
                     $this->translator->translate('voyti.social.associated_user_not_found', category: 'voyti-social-auth'),
                 );
             }
             if ($user->isBlocked()) {
-                return ServiceResult::failure(
+                return SocialAuthResult::failure(
                     $this->translator->translate('voyti.social.account_blocked', category: 'voyti-social-auth'),
                 );
             }
 
-            $previousSessionId = $this->session->getId();
-            $this->currentUser->login($user);
-            LoginMetadataHelper::recordLogin($user, $serverParams);
-            $this->eventDispatcher->dispatch(
-                new AfterLoginEvent($user, previousSessionId: $previousSessionId, serverParams: $serverParams),
-            );
+            /**
+             * @psalm-suppress PossiblyNullArgument `AuthActionRequestHolder::getRequest()` is only null
+             * before `CaptureAuthActionRequestMiddleware` runs - this service only runs as part of
+             * `AuthAction`'s success callback, which is always reached after that middleware, since
+             * it wraps this package's whole route group.
+             */
+            try {
+                $response = $this->loginCompletionService->complete($user, true, $this->requestHolder->getRequest());
+            } catch (ActionPreventedException $exception) {
+                return SocialAuthResult::failure($exception->getMessage());
+            }
 
             $this->session->remove(self::SESSION_KEY);
 
-            return ServiceResult::success();
+            return SocialAuthResult::success($response);
         }
 
         $code = $account->getCode();
         if ($code === null || $code === '') {
-            return ServiceResult::failure(
+            return SocialAuthResult::failure(
                 $this->translator->translate('voyti.social.connection_unavailable', category: 'voyti-social-auth'),
             );
         }
 
         $this->pendingSocialAccountService->remember($account);
 
-        return ServiceResult::success();
+        return SocialAuthResult::success();
     }
 
     private function buildUniqueUsername(?string $usernameHint, string $email): string
