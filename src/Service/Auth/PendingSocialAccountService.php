@@ -20,7 +20,7 @@ use Yiisoft\Session\SessionInterface;
  */
 final readonly class PendingSocialAccountService implements PostLoginHookInterface, PostRegistrationHookInterface
 {
-    public const string SESSION_KEY = 'social_network_account_code';
+    public const string SESSION_KEY = 'social_auth_account_code';
 
     public function __construct(
         private SessionInterface $session,

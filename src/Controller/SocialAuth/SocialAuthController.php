@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace YiiRocks\Voyti\SocialAuth\Controller\SocialNetwork;
+namespace YiiRocks\Voyti\SocialAuth\Controller\SocialAuth;
 
 use Psr\Http\Message\ResponseFactoryInterface;
 use Psr\Http\Message\ResponseInterface;
@@ -27,7 +27,7 @@ use Yiisoft\Yii\View\Renderer\WebViewRenderer;
 /**
  * Lists the current user's connected social accounts and lets them disconnect one.
  */
-final readonly class SocialNetworkController
+final readonly class SocialAuthController
 {
     use RedirectTrait;
     use RenderTrait;
@@ -54,15 +54,15 @@ final readonly class SocialNetworkController
             $account->delete();
             $this->flashNotifier->add(
                 FlashType::SUCCESS,
-                $this->translator->translate('voyti.settings.network_disconnected', category: 'voyti-social-auth'),
+                $this->translator->translate('voyti.settings.account_disconnected', category: 'voyti-social-auth'),
             );
 
-            return $this->redirect($this->url->generate('voyti/user-social-network'));
+            return $this->redirect($this->url->generate('voyti/user-social-auth'));
         }
 
         return $this->renderView('shared/message', [
             'data' => [
-                'title' => $this->translator->translate('voyti.settings.network_not_found', category: 'voyti-social-auth'),
+                'title' => $this->translator->translate('voyti.settings.account_not_found', category: 'voyti-social-auth'),
                 'homeUrl' => $this->homeUrl(),
             ],
         ]);
@@ -103,13 +103,13 @@ final readonly class SocialNetworkController
                 return [
                     'providerTitle' => $title,
                     'identity' => $decodedData['username'] ?? $decodedData['name'] ?? $account->getClientId(),
-                    'formSubmitUrl' => $url->generate('voyti/user-social-network-delete', ['id' => $account->getId()]),
+                    'formSubmitUrl' => $url->generate('voyti/user-social-auth-delete', ['id' => $account->getId()]),
                 ];
             },
             $accounts,
         );
 
-        return $this->renderView('social-network/index', [
+        return $this->renderView('social-auth/index', [
             'data' => [
                 'menuHtml' => $this->viewRenderer
                     ->withAddedInjections(CsrfViewInjection::class, VoytiCommonParametersInjection::class)

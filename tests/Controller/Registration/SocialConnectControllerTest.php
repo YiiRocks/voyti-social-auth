@@ -54,7 +54,7 @@ final class SocialConnectControllerTest extends DatabaseTestCase
         $html = (string) $this->createController([
             Collection::class => new Collection([]),
         ])->connect('code1234')->getBody();
-        self::assertStringContainsString('Network not found', $html);
+        self::assertStringContainsString('Account not found', $html);
     }
 
     public function testConnectWithConfiguredViewPath(): void

@@ -58,7 +58,7 @@ final class SocialAuthCallbackServiceTest extends DatabaseTestCase
 
     public function testHandleSuccessGuestFailureRendersMessage(): void
     {
-        // With social-network registration disabled, the real authenticate service fails.
+        // With social-auth registration disabled, the real authenticate service fails.
         $html = (string) $this->createService([
             UserSocialAuthenticateService::class => static fn(
                 VoytiConfig $config,
@@ -80,7 +80,7 @@ final class SocialAuthCallbackServiceTest extends DatabaseTestCase
             ),
         ])->handleSuccess($this->client('github'))->getBody();
 
-        self::assertStringContainsString('Social network registration is disabled', $html);
+        self::assertStringContainsString('Social authentication registration is disabled', $html);
 
         // A RuntimeException from the underlying flow is rendered as the message.
         // The account is already linked to an existing user, so the real authenticate service logs
@@ -142,14 +142,14 @@ final class SocialAuthCallbackServiceTest extends DatabaseTestCase
         self::assertStringContainsString('This account has already been connected to another user', $html);
     }
 
-    public function testHandleSuccessLoggedInSuccessRedirectsToSocialNetworkIndex(): void
+    public function testHandleSuccessLoggedInSuccessRedirectsToSocialAuthIndex(): void
     {
         $viewer = $this->createUser(username: 'viewer', email: 'viewer@example.com');
         $this->currentUser->login($viewer);
 
         $html = (string) $this->createService()->handleSuccess($this->client('github'))->getBody();
 
-        self::assertStringContainsString('href="//voyti/user-social-network"', $html);
+        self::assertStringContainsString('href="//voyti/user-social-auth"', $html);
         // The real connect service linked the provider account to the viewer.
         $account = UserSocialAccount::findByProviderAndClientId('github', 'client123');
         $this->assertNotNull($account);

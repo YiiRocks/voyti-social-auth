@@ -8,14 +8,14 @@ return [
     'yiirocks/voyti' => [
         'accountMenuItems' => [
             [
-                'label' => 'voyti.menu.networks',
+                'label' => 'voyti.menu.social_auth',
                 'category' => 'voyti-social-auth',
-                'route' => 'voyti/user-social-network',
+                'route' => 'voyti/user-social-auth',
             ],
         ],
 
         'social-auth' => [
-            'enableSocialNetworkRegistration' => true,
+            'enableSocialAuthRegistration' => true,
             'allowMultipleAccountsPerProvider' => false,
         ],
     ],

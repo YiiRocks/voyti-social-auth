@@ -38,7 +38,7 @@ final readonly class SocialConnectController
         if ($account === null) {
             return $this->renderView('shared/message', [
                 'data' => [
-                    'title' => $this->translator->translate('voyti.settings.network_not_found', category: 'voyti-social-auth'),
+                    'title' => $this->translator->translate('voyti.settings.account_not_found', category: 'voyti-social-auth'),
                     'homeUrl' => $this->homeUrl(),
                 ],
             ]);

@@ -36,11 +36,11 @@ final class PendingSocialAccountServiceTest extends DatabaseTestCase
 
     public function testClearRemovesSessionKey(): void
     {
-        $this->session->set('social_network_account_code', 'some_code');
-        self::assertTrue($this->session->has('social_network_account_code'));
+        $this->session->set('social_auth_account_code', 'some_code');
+        self::assertTrue($this->session->has('social_auth_account_code'));
 
         $this->service->clear();
-        self::assertFalse($this->session->has('social_network_account_code'));
+        self::assertFalse($this->session->has('social_auth_account_code'));
     }
 
     public function testConnect(): void
@@ -53,73 +53,73 @@ final class PendingSocialAccountServiceTest extends DatabaseTestCase
         // Pending account: connected and the session is cleared.
         $user = $this->createUser(username: 'linker', email: 'linker@example.com');
         $this->createPendingAccount('123', 'pending_code');
-        $this->session->set('social_network_account_code', 'pending_code');
+        $this->session->set('social_auth_account_code', 'pending_code');
         $result = $this->service->connect($user);
         self::assertTrue($result->isSuccess());
         self::assertNull(UserSocialAccount::findByCode('pending_code'));
-        self::assertFalse($this->session->has('social_network_account_code'));
+        self::assertFalse($this->session->has('social_auth_account_code'));
 
         // Different provider already connected, multiple accounts disabled: still links.
         $user = $this->createUser(username: 'crossprovider', email: 'cross@example.com');
         $this->createPendingAccount('124', 'other_provider_code');
-        $this->session->set('social_network_account_code', 'other_provider_code');
+        $this->session->set('social_auth_account_code', 'other_provider_code');
         $this->createConnectedAccount('google', 'google_client', (int) $user->getId());
         $result = $this->service->connect($user);
         self::assertTrue($result->isSuccess());
         self::assertNull(UserSocialAccount::findByCode('other_provider_code'));
-        self::assertFalse($this->session->has('social_network_account_code'));
+        self::assertFalse($this->session->has('social_auth_account_code'));
 
         // Same provider already connected, multiple accounts disabled: refused and the session is
         // cleared, leaving the pending account unconnected.
         $user = $this->createUser(username: 'refused', email: 'refused@example.com');
         $this->createPendingAccount('125', 'refused_code');
-        $this->session->set('social_network_account_code', 'refused_code');
+        $this->session->set('social_auth_account_code', 'refused_code');
         $this->createConnectedAccount('github', 'existing_client', (int) $user->getId());
         $result = $this->service->connect($user);
         self::assertTrue($result->isFailure());
         $loaded = UserSocialAccount::findByCode('refused_code');
         self::assertNotNull($loaded);
         self::assertFalse($loaded->isConnected());
-        self::assertFalse($this->session->has('social_network_account_code'));
+        self::assertFalse($this->session->has('social_auth_account_code'));
 
         // Same provider already connected, multiple accounts allowed: links anyway.
         $this->createPendingAccount('126', 'allowed_code');
-        $this->session->set('social_network_account_code', 'allowed_code');
+        $this->session->set('social_auth_account_code', 'allowed_code');
         $result = $this->createService(allowMultipleAccountsPerProvider: true)->connect($user);
         self::assertTrue($result->isSuccess());
         self::assertNull(UserSocialAccount::findByCode('allowed_code'));
-        self::assertFalse($this->session->has('social_network_account_code'));
+        self::assertFalse($this->session->has('social_auth_account_code'));
     }
 
     public function testGetPendingAccount(): void
     {
         // Session code without a matching account: null and the session is cleared.
-        $this->session->set('social_network_account_code', 'missing');
+        $this->session->set('social_auth_account_code', 'missing');
         $result = $this->service->getPendingAccount();
         self::assertNull($result);
-        self::assertFalse($this->session->has('social_network_account_code'));
+        self::assertFalse($this->session->has('social_auth_account_code'));
 
         // Invalid session code (empty string, non-string): null.
-        $this->session->set('social_network_account_code', '');
+        $this->session->set('social_auth_account_code', '');
         self::assertNull($this->service->getPendingAccount());
-        $this->session->set('social_network_account_code', 5);
+        $this->session->set('social_auth_account_code', 5);
         self::assertNull($this->service->getPendingAccount());
 
         // Connected account code: null and the session is cleared.
         $user = $this->createUser(username: 'test');
         $this->createPendingAccount('106', 'connected_get_code', (int) $user->getId());
-        $this->session->set('social_network_account_code', 'connected_get_code');
+        $this->session->set('social_auth_account_code', 'connected_get_code');
         $result = $this->service->getPendingAccount();
         self::assertNull($result);
-        self::assertFalse($this->session->has('social_network_account_code'));
+        self::assertFalse($this->session->has('social_auth_account_code'));
 
         // Pending account: returned and the session is retained.
         $this->createPendingAccount('107', 'pending_get_code');
-        $this->session->set('social_network_account_code', 'pending_get_code');
+        $this->session->set('social_auth_account_code', 'pending_get_code');
         $result = $this->service->getPendingAccount();
         self::assertNotNull($result);
         self::assertSame('pending_get_code', $result->getCode());
-        self::assertTrue($this->session->has('social_network_account_code'));
+        self::assertTrue($this->session->has('social_auth_account_code'));
     }
 
     public function testHandleConnectsPendingAccount(): void
@@ -128,12 +128,12 @@ final class PendingSocialAccountServiceTest extends DatabaseTestCase
         // consults; it must behave exactly like connect() for a pending account.
         $user = $this->createUser(username: 'test');
         $this->createPendingAccount('123', 'handle_code');
-        $this->session->set('social_network_account_code', 'handle_code');
+        $this->session->set('social_auth_account_code', 'handle_code');
 
         $this->service->handle($user);
 
         self::assertNull(UserSocialAccount::findByCode('handle_code'));
-        self::assertFalse($this->session->has('social_network_account_code'));
+        self::assertFalse($this->session->has('social_auth_account_code'));
     }
 
     #[DataProvider('rememberCodeProvider')]
@@ -149,34 +149,34 @@ final class PendingSocialAccountServiceTest extends DatabaseTestCase
         $this->service->remember($account);
 
         if ($expectedStored === null) {
-            self::assertFalse($this->session->has('social_network_account_code'));
+            self::assertFalse($this->session->has('social_auth_account_code'));
         } else {
-            self::assertSame($expectedStored, $this->session->get('social_network_account_code'));
+            self::assertSame($expectedStored, $this->session->get('social_auth_account_code'));
         }
     }
 
     public function testUseCode(): void
     {
         // Unknown code: null and the session is cleared.
-        $this->session->set('social_network_account_code', 'unknown_code');
+        $this->session->set('social_auth_account_code', 'unknown_code');
         $result = $this->service->useCode('unknown_code');
         self::assertNull($result);
-        self::assertFalse($this->session->has('social_network_account_code'));
+        self::assertFalse($this->session->has('social_auth_account_code'));
 
         // Connected account code: null and the session is cleared.
         $user = $this->createUser(username: 'test');
         $this->createPendingAccount('107', 'connected_use_clear', (int) $user->getId());
-        $this->session->set('social_network_account_code', 'connected_use_clear');
+        $this->session->set('social_auth_account_code', 'connected_use_clear');
         $result = $this->service->useCode('connected_use_clear');
         self::assertNull($result);
-        self::assertFalse($this->session->has('social_network_account_code'));
+        self::assertFalse($this->session->has('social_auth_account_code'));
 
         // Unconnected account code: stored in the session and returned.
         $this->createPendingAccount('104', 'use_code');
         $result = $this->service->useCode('use_code');
         self::assertNotNull($result);
         self::assertSame('use_code', $result->getCode());
-        self::assertSame('use_code', $this->session->get('social_network_account_code'));
+        self::assertSame('use_code', $this->session->get('social_auth_account_code'));
     }
 
     private function createConnectedAccount(string $provider, string $clientId, int $userId): UserSocialAccount

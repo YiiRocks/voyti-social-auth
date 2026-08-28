@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 use YiiRocks\Voyti\Middleware\RequireLoginMiddleware;
 use YiiRocks\Voyti\SocialAuth\Controller\Registration\SocialConnectController;
-use YiiRocks\Voyti\SocialAuth\Controller\SocialNetwork\SocialNetworkController;
+use YiiRocks\Voyti\SocialAuth\Controller\SocialAuth\SocialAuthController;
 use YiiRocks\Voyti\SocialAuth\Middleware\CaptureAuthActionRequestMiddleware;
 use YiiRocks\Voyti\VoytiRoutes;
 use Yiisoft\Router\Group;
@@ -24,8 +24,8 @@ return [
             Group::create('settings/')
                 ->middleware(RequireLoginMiddleware::class)
                 ->routes(
-                    Route::get('networks/')->name('voyti/user-social-network')->action([SocialNetworkController::class, 'index']),
-                    Route::post('networks/disconnect/{id:\d+}')->name('voyti/user-social-network-delete')->action([SocialNetworkController::class, 'delete']),
+                    Route::get('social/')->name('voyti/user-social-auth')->action([SocialAuthController::class, 'index']),
+                    Route::post('social/disconnect/{id:\d+}')->name('voyti/user-social-auth-delete')->action([SocialAuthController::class, 'delete']),
                 ),
         ),
 ];

@@ -34,7 +34,7 @@ final readonly class UserSocialAuthenticateService
 
     public function __construct(
         private VoytiConfig $config,
-        private bool $enableSocialNetworkRegistration,
+        private bool $enableSocialAuthRegistration,
         private AuthActionRequestHolder $requestHolder,
         private LoginCompletionService $loginCompletionService,
         private SessionInterface $session,
@@ -54,7 +54,7 @@ final readonly class UserSocialAuthenticateService
         array $userAttributes,
         array $serverParams = [],
     ): SocialAuthResult {
-        if (!$this->enableSocialNetworkRegistration) {
+        if (!$this->enableSocialAuthRegistration) {
             return SocialAuthResult::failure(
                 $this->translator->translate('voyti.social.registration_disabled', category: 'voyti-social-auth'),
             );

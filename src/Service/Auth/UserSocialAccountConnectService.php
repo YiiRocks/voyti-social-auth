@@ -31,7 +31,7 @@ final readonly class UserSocialAccountConnectService
 
         if ($account !== null && $account->getUserId() !== null) {
             return SocialAuthResult::failure(
-                $this->translator->translate('voyti.social.network_already_connected', category: 'voyti-social-auth'),
+                $this->translator->translate('voyti.social.account_already_connected', category: 'voyti-social-auth'),
             );
         }
 

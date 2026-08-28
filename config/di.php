@@ -6,7 +6,7 @@ use Psr\Http\Message\ResponseFactoryInterface;
 use YiiRocks\Voyti\Service\Auth\LoginCompletionService;
 use YiiRocks\Voyti\Service\FlashNotifier;
 use YiiRocks\Voyti\Service\User\UserCreationHelper;
-use YiiRocks\Voyti\SocialAuth\Controller\SocialNetwork\SocialNetworkController;
+use YiiRocks\Voyti\SocialAuth\Controller\SocialAuth\SocialAuthController;
 use YiiRocks\Voyti\SocialAuth\Http\AuthActionRequestHolder;
 use YiiRocks\Voyti\SocialAuth\Service\Auth\PendingSocialAccountService;
 use YiiRocks\Voyti\SocialAuth\Service\Auth\SocialAuthCallbackService;
@@ -53,7 +53,7 @@ return [
         ->withSuccessCallback($callback->handleSuccess(...))
         ->withCancelCallback($callback->handleCancel(...)),
 
-    SocialNetworkController::class => static fn(
+    SocialAuthController::class => static fn(
         TranslatorInterface $translator,
         WebViewRenderer $viewRenderer,
         UrlGeneratorInterface $url,
@@ -62,7 +62,7 @@ return [
         CurrentUser $currentUser,
         ResponseFactoryInterface $responseFactory,
         FlashNotifier $flashNotifier,
-    ) => new SocialNetworkController(
+    ) => new SocialAuthController(
         $translator,
         $viewRenderer,
         $url,
@@ -111,7 +111,7 @@ return [
         TranslatorInterface $translator,
     ) => new UserSocialAuthenticateService(
         $config,
-        $params['yiirocks/voyti']['social-auth']['enableSocialNetworkRegistration'] ?? true,
+        $params['yiirocks/voyti']['social-auth']['enableSocialAuthRegistration'] ?? true,
         $requestHolder,
         $loginCompletionService,
         $session,

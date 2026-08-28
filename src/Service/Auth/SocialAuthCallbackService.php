@@ -78,7 +78,7 @@ final readonly class SocialAuthCallbackService
         }
 
         if (!$isGuest) {
-            return $this->popupAwareRedirect($this->url->generate('voyti/user-social-network'));
+            return $this->popupAwareRedirect($this->url->generate('voyti/user-social-auth'));
         }
 
         $account = $this->pendingSocialAccountService->getPendingAccount();

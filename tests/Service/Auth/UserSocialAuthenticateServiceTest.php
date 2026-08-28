@@ -44,13 +44,13 @@ final class UserSocialAuthenticateServiceTest extends DatabaseTestCase
         $result = $this->createService(VoytiConfigFactory::create())
             ->run('github', '', ['email' => 'empty1@example.com']);
         self::assertTrue($result->isFailure());
-        self::assertSame('Unable to determine social network client ID', $result->getMessage());
+        self::assertSame('Unable to determine social authentication client ID', $result->getMessage());
 
         // Without session data: fails
         $result = $this->createService(VoytiConfigFactory::create())
             ->run('github', '', ['email' => 'empty2@example.com']);
         self::assertTrue($result->isFailure());
-        self::assertSame('Unable to determine social network client ID', $result->getMessage());
+        self::assertSame('Unable to determine social authentication client ID', $result->getMessage());
 
         // With session data: uses session
         $this->session->set('oauth_client_data', ['user_id' => 'session_user_123']);
