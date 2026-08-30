@@ -109,7 +109,7 @@ final readonly class UserSocialAuthenticateService
 
             $this->session->remove(self::SESSION_KEY);
 
-            return SocialAuthResult::success($response);
+            return SocialAuthResult::success($response, $user);
         }
 
         $code = $account->getCode();

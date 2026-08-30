@@ -10,9 +10,12 @@ use Yiisoft\Yii\AuthClient\Collection;
 
 /**
  * Finalizes OAuth2 clients right before {@see AuthAction} builds their authorization URL. Fills in
- * the `voyti/session-auth` return URL for clients that don't have one (`OAuth2::getOauth2ReturnUrl()`
- * has no request-derived fallback - an empty `redirect_uri` is rejected outright by strict providers
- * like Google). The return URL is only applied when not already configured by the host.
+ * the return URL for clients that don't have one (`OAuth2::getOauth2ReturnUrl()` has no
+ * request-derived fallback - an empty `redirect_uri` is rejected outright by strict providers like
+ * Google). Only applied when not already configured by the host.
+ *
+ * `$routeName` defaults to this package's own `voyti/session-auth` route; a caller building its own
+ * {@see AuthAction} for a different callback route (e.g. an API bridge) can pass its own instead.
  */
 final readonly class SocialAuthClientReturnUrlConfigurator
 {
@@ -21,12 +24,12 @@ final readonly class SocialAuthClientReturnUrlConfigurator
         private bool $allowMultipleAccountsPerProvider,
     ) {}
 
-    public function configure(Collection $clientCollection): Collection
+    public function configure(Collection $clientCollection, string $routeName = 'voyti/session-auth'): Collection
     {
         foreach ($clientCollection->getClients() as $authClientKey => $client) {
             if ($client->getOauth2ReturnUrl() === '') {
                 $client->setOauth2ReturnUrl(
-                    $this->url->generateAbsolute('voyti/session-auth', ['authclient' => $authClientKey]),
+                    $this->url->generateAbsolute($routeName, ['authclient' => $authClientKey]),
                 );
             }
         }
