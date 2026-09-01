@@ -53,7 +53,7 @@ final class UserSocialAccount extends ActiveRecord
     }
 
     /**
-     * @psalm-return list<UserSocialAccount>
+     * @return list<UserSocialAccount>
      */
     public static function findByUserId(int $userId): array
     {
