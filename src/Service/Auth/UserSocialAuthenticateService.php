@@ -8,6 +8,7 @@ use YiiRocks\Voyti\Exception\ActionPreventedException;
 use YiiRocks\Voyti\Helper\LoginMetadataHelper;
 use YiiRocks\Voyti\Model\User;
 use YiiRocks\Voyti\Service\Auth\LoginCompletionService;
+use YiiRocks\Voyti\Service\Password\PasswordGeneratorInterface;
 use YiiRocks\Voyti\Service\User\UserCreationHelper;
 use YiiRocks\Voyti\SocialAuth\Http\AuthActionRequestHolder;
 use YiiRocks\Voyti\SocialAuth\Model\UserSocialAccount;
@@ -37,6 +38,7 @@ final readonly class UserSocialAuthenticateService
         private bool $enableSocialAuthRegistration,
         private AuthActionRequestHolder $requestHolder,
         private LoginCompletionService $loginCompletionService,
+        private PasswordGeneratorInterface $passwordGenerator,
         private SessionInterface $session,
         private UserCreationHelper $userCreationHelper,
         private PendingSocialAccountService $pendingSocialAccountService,
@@ -185,8 +187,7 @@ final readonly class UserSocialAuthenticateService
     private function registerUser(string $email, ?string $usernameHint, array $serverParams): User
     {
         $username = $this->buildUniqueUsername($usernameHint, $email);
-        /** @infection-ignore-all The random password's exact length is unobservable once hashed. */
-        $password = Random::string(24);
+        $password = $this->passwordGenerator->generate(24);
 
         $user = $this->userCreationHelper->buildUser($email, $username, $password);
         $user->setRegistrationIp(LoginMetadataHelper::remoteAddr($serverParams));

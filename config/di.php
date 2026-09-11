@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Psr\Http\Message\ResponseFactoryInterface;
 use YiiRocks\Voyti\Service\Auth\LoginCompletionService;
+use YiiRocks\Voyti\Service\Password\PasswordGeneratorInterface;
 use YiiRocks\Voyti\Service\FlashNotifier;
 use YiiRocks\Voyti\Service\User\UserCreationHelper;
 use YiiRocks\Voyti\SocialAuth\Controller\SocialAuth\SocialAuthController;
@@ -105,6 +106,7 @@ return [
         VoytiConfig $config,
         AuthActionRequestHolder $requestHolder,
         LoginCompletionService $loginCompletionService,
+        PasswordGeneratorInterface $passwordGenerator,
         SessionInterface $session,
         UserCreationHelper $userCreationHelper,
         PendingSocialAccountService $pendingSocialAccountService,
@@ -114,6 +116,7 @@ return [
         $params['yiirocks/voyti']['social-auth']['enableSocialAuthRegistration'] ?? true,
         $requestHolder,
         $loginCompletionService,
+        $passwordGenerator,
         $session,
         $userCreationHelper,
         $pendingSocialAccountService,
