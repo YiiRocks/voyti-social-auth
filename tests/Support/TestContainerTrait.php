@@ -36,6 +36,7 @@ use Yiisoft\Session\Flash\Flash;
 use Yiisoft\Session\Flash\FlashInterface;
 use Yiisoft\Session\SessionInterface;
 use Yiisoft\Translator\CategorySource;
+use Yiisoft\Translator\IntlMessageFormatter;
 use Yiisoft\Translator\Message\Php\MessageSource;
 use Yiisoft\Translator\SimpleMessageFormatter;
 use Yiisoft\Translator\Translator;
@@ -169,7 +170,7 @@ trait TestContainerTrait
                     new CategorySource(
                         'voyti',
                         new MessageSource($coreRoot . '/resources/messages'),
-                        new SimpleMessageFormatter(),
+                        new IntlMessageFormatter(),
                     ),
                     new CategorySource(
                         'voyti-social-auth',

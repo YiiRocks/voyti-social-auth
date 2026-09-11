@@ -80,9 +80,7 @@ final readonly class UserSocialAuthenticateService
 
         $account = UserSocialAccount::findByProviderAndClientId($provider, $clientId);
 
-        if ($account === null) {
-            $account = $this->createAccount($provider, $clientId, $userAttributes, $serverParams);
-        }
+        $account ??= $this->createAccount($provider, $clientId, $userAttributes, $serverParams);
 
         if ($account->getUserId() !== null) {
             $user = User::findById($account->getUserId());
