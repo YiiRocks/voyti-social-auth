@@ -8,6 +8,7 @@ use Composer\InstalledVersions;
 use YiiRocks\Voyti\Service\MailService;
 use Yiisoft\Mailer\MailerInterface;
 use Yiisoft\Translator\CategorySource;
+use Yiisoft\Translator\IntlMessageFormatter;
 use Yiisoft\Translator\Message\Php\MessageSource;
 use Yiisoft\Translator\SimpleMessageFormatter;
 use Yiisoft\Translator\Translator;
@@ -28,7 +29,7 @@ trait MailServiceFactoryTrait
             new CategorySource(
                 'voyti',
                 new MessageSource($coreRoot . '/resources/messages'),
-                new SimpleMessageFormatter(),
+                new IntlMessageFormatter(),
             ),
         );
 
