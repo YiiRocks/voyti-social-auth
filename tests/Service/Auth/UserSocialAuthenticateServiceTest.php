@@ -9,6 +9,8 @@ use Psr\EventDispatcher\EventDispatcherInterface;
 use YiiRocks\Voyti\Event\Auth\BeforeLoginEvent;
 use YiiRocks\Voyti\Exception\ActionPreventedException;
 use YiiRocks\Voyti\Model\User;
+use YiiRocks\Voyti\PasswordPolicyConfig;
+use YiiRocks\Voyti\Service\Password\PasswordGeneratorInterface;
 use YiiRocks\Voyti\SocialAuth\Model\UserSocialAccount;
 use YiiRocks\Voyti\SocialAuth\Service\Auth\UserSocialAuthenticateService;
 use YiiRocks\Voyti\SocialAuth\tests\Support\CurrentUserTrait;
@@ -187,6 +189,31 @@ final class UserSocialAuthenticateServiceTest extends DatabaseTestCase
         self::assertSame('sessionname', $user->getUsername());
     }
 
+    public function testRunRegistersWithRestrictiveGeneratedPasswordPolicy(): void
+    {
+        $passwordGenerator = $this->createMock(PasswordGeneratorInterface::class);
+        $passwordGenerator->expects(self::once())
+            ->method('generate')
+            ->with(24)
+            ->willReturn('Aa1!2?');
+        $config = VoytiConfigFactory::create(
+            passwordPolicy: new PasswordPolicyConfig(
+                minLength: 6,
+                maxLength: 6,
+                minUppercase: 1,
+                minLowercase: 1,
+                minDigits: 2,
+                minSymbols: 2,
+            ),
+        );
+
+        $result = $this->createService($config, passwordGenerator: $passwordGenerator)
+            ->run('github', 'strict-policy', ['username' => 'strict', 'email' => 'strict@example.com']);
+
+        self::assertTrue($result->isSuccess());
+        self::assertNotNull(User::findByEmail('strict@example.com'));
+    }
+
     public function testRunUsernameDuplication(): void
     {
         // Base name taken: uses first numeric suffix
@@ -312,6 +339,7 @@ final class UserSocialAuthenticateServiceTest extends DatabaseTestCase
         VoytiConfig $config,
         ?CurrentUser $currentUser = null,
         ?EventDispatcherInterface $eventDispatcher = null,
+        ?PasswordGeneratorInterface $passwordGenerator = null,
     ): UserSocialAuthenticateService {
         $overrides = [
             VoytiConfig::class => $config,
@@ -320,6 +348,9 @@ final class UserSocialAuthenticateServiceTest extends DatabaseTestCase
         ];
         if ($eventDispatcher !== null) {
             $overrides[EventDispatcherInterface::class] = $eventDispatcher;
+        }
+        if ($passwordGenerator !== null) {
+            $overrides[PasswordGeneratorInterface::class] = $passwordGenerator;
         }
 
         return $this->getTestContainer($overrides)->get(UserSocialAuthenticateService::class);

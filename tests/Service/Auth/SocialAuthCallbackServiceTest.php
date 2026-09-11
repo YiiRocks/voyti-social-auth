@@ -9,6 +9,7 @@ use PHPUnit\Framework\MockObject\MockObject;
 use Psr\EventDispatcher\EventDispatcherInterface;
 use YiiRocks\Voyti\Model\User;
 use YiiRocks\Voyti\Service\Auth\LoginCompletionService;
+use YiiRocks\Voyti\Service\Password\PasswordGeneratorInterface;
 use YiiRocks\Voyti\Service\User\UserCreationHelper;
 use YiiRocks\Voyti\SocialAuth\Http\AuthActionRequestHolder;
 use YiiRocks\Voyti\SocialAuth\Model\UserSocialAccount;
@@ -64,6 +65,7 @@ final class SocialAuthCallbackServiceTest extends DatabaseTestCase
                 VoytiConfig $config,
                 AuthActionRequestHolder $requestHolder,
                 LoginCompletionService $loginCompletionService,
+                PasswordGeneratorInterface $passwordGenerator,
                 SessionInterface $session,
                 UserCreationHelper $userCreationHelper,
                 PendingSocialAccountService $pendingSocialAccountService,
@@ -73,6 +75,7 @@ final class SocialAuthCallbackServiceTest extends DatabaseTestCase
                 false,
                 $requestHolder,
                 $loginCompletionService,
+                $passwordGenerator,
                 $session,
                 $userCreationHelper,
                 $pendingSocialAccountService,
